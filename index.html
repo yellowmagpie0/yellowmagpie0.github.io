@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Alberta & BC Air Quality</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.95rem; }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .tab {
+    padding: 0.5rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .tab:hover { border-color: var(--accent); color: var(--text); }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0f172a;
+  }
+  .current {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .aqi-main { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+  .aqi-value {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .aqi-label { font-size: 1.25rem; font-weight: 600; }
+  .aqi-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+  }
+  .pollutants {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+  .pollutant {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 0.75rem;
+  }
+  .pollutant .name { font-size: 0.75rem; color: var(--muted); }
+  .pollutant .val { font-size: 1.1rem; font-weight: 600; }
+  .pollutant .unit { font-size: 0.7rem; color: var(--muted); }
+  h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--muted); }
+  .forecast { display: grid; gap: 0.5rem; }
+  .day {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+  }
+  .day .date { font-weight: 600; }
+  .day .bar {
+    width: 120px;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .day .bar-fill { height: 100%; }
+  .day .aqi-num { font-weight: 700; min-width: 2.5rem; text-align: right; }
+  .blocks {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .block .label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
+  .block .val { font-size: 1.75rem; font-weight: 700; line-height: 1.1; }
+  .block .cat { font-size: 0.75rem; font-weight: 600; margin-top: 0.25rem; }
+  .blocks-heading { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--muted); }
+  .status { padding: 1rem; border-radius: 8px; text-align: center; }
+  .error { background: #7f1d1d; color: #fee2e2; }
+  .loading { color: var(--muted); }
+  .updated { color: var(--muted); font-size: 0.8rem; margin-top: 1rem; }
+  .compare {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .compare h2 { margin-bottom: 0.75rem; }
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-row:hover .city-name { color: var(--accent); }
+  .compare-row .city-name { font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Air Quality Dashboard</h1>
+    <p class="subtitle">Alberta &amp; British Columbia, Canada</p>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div id="status" class="status loading">Loading air quality data&hellip;</div>
+
+    <div id="current-section" style="display:none;">
+      <div class="compare" id="compare-section">
+        <h2>All Cities &mdash; Current AQI</h2>
+        <div id="compare"></div>
+      </div>
+
+      <div class="current">
+        <div class="aqi-main">
+          <div>
+            <div class="aqi-value" id="aqi-value">--</div>
+            <div class="aqi-label">US AQI</div>
+            <div class="aqi-badge" id="aqi-badge">--</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:0.85rem;">Current Air Quality</div>
+            <div id="aqi-category" style="font-size:1.4rem;font-weight:700;margin-top:0.25rem;">--</div>
+          </div>
+        </div>
+        <div class="pollutants" id="pollutants"></div>
+        <div class="updated" id="updated"></div>
+      </div>
+
+      <h2 class="blocks-heading">Today &amp; Tomorrow &mdash; by time of day</h2>
+      <div id="blocks-section"></div>
+
+      <h2>7-Day Forecast (daily average US AQI)</h2>
+      <div class="forecast" id="forecast"></div>
+    </div>
+  </div>
+
+<script>
+const CITIES = [
+  { name: "Banff",      province: "AB", lat: 51.1784, lon: -115.5708 },
+  { name: "Canmore",    province: "AB", lat: 51.0892, lon: -115.3441 },
+  { name: "Jasper",     province: "AB", lat: 52.8734, lon: -118.0814 },
+  { name: "Edmonton",   province: "AB", lat: 53.5461, lon: -113.4938 },
+  { name: "Vancouver",  province: "BC", lat: 49.2827, lon: -123.1207 },
+];
+
+const POLLUTANT_LABELS = {
+  pm2_5: "PM2.5",
+  pm10: "PM10",
+  carbon_monoxide: "CO",
+  nitrogen_dioxide: "NO₂",
+  sulphur_dioxide: "SO₂",
+  ozone: "O₃",
+};
+
+// Cache of fetched data per city
+const cache = {};
+let activeCity = CITIES[0].name;
+
+function apiUrl(city) {
+  return `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}` +
+    `&current=us_aqi,pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone` +
+    `&hourly=us_aqi&timezone=auto&forecast_days=7`;
+}
+
+function aqiCategory(aqi) {
+  if (aqi <= 50) return { name: "Good", color: "#22c55e", badge: "#16a34a" };
+  if (aqi <= 100) return { name: "Moderate", color: "#eab308", badge: "#ca8a04" };
+  if (aqi <= 150) return { name: "Unhealthy for Sensitive Groups", color: "#f97316", badge: "#ea580c" };
+  if (aqi <= 200) return { name: "Unhealthy", color: "#ef4444", badge: "#dc2626" };
+  if (aqi <= 300) return { name: "Very Unhealthy", color: "#a855f7", badge: "#9333ea" };
+  return { name: "Hazardous", color: "#7f1d1d", badge: "#7f1d1d" };
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function avgOf(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+
+const BLOCKS = [
+  { name: "Morning",   start: 6,  end: 12, dayOffset: 0 },
+  { name: "Afternoon", start: 12, end: 18, dayOffset: 0 },
+  { name: "Evening",   start: 18, end: 24, dayOffset: 0 },
+  { name: "Night",      start: 0,  end: 6,  dayOffset: 1 },
+];
+
+function shiftDay(dayKey, offset) {
+  const d = new Date(dayKey + "T00:00:00");
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
+function renderBlocks(hourly) {
+  const el = document.getElementById("blocks-section");
+  el.innerHTML = "";
+  // Group hourly into days (local time). hourly.time is local ISO strings.
+  const byDay = new Map();
+  hourly.time.forEach((t, i) => {
+    const day = t.slice(0, 10);
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push({ hour: parseInt(t.slice(11, 13), 10), aqi: hourly.us_aqi[i] });
+  });
+
+  const days = [...byDay.keys()].slice(0, 2); // today + tomorrow
+  days.forEach((day, di) => {
+    const heading = document.createElement("div");
+    heading.style.cssText = "font-weight:600;margin:0.75rem 0 0.5rem;";
+    heading.textContent = di === 0 ? "Today" : "Tomorrow";
+    el.appendChild(heading);
+
+    const grid = document.createElement("div");
+    grid.className = "blocks";
+    BLOCKS.forEach(b => {
+      const sourceDay = shiftDay(day, b.dayOffset);
+      const sourceHours = byDay.get(sourceDay) || [];
+      const vals = sourceHours
+        .filter(h => h.hour >= b.start && h.hour < b.end && h.aqi != null)
+        .map(h => h.aqi);
+      const avg = vals.length ? Math.round(avgOf(vals)) : null;
+      const cat = avg != null ? aqiCategory(avg) : { name: "—", color: "var(--muted)" };
+      const block = document.createElement("div");
+      block.className = "block";
+      block.innerHTML = `
+        <div class="label">${b.name}</div>
+        <div class="val" style="color:${cat.color};">${avg ?? "—"}</div>
+        <div class="cat" style="color:${cat.color};">${avg != null ? cat.name : ""}</div>
+      `;
+      grid.appendChild(block);
+    });
+    el.appendChild(grid);
+  });
+}
+
+function renderTabs() {
+  const el = document.getElementById("tabs");
+  el.innerHTML = "";
+  CITIES.forEach(c => {
+    const t = document.createElement("button");
+    t.className = "tab" + (c.name === activeCity ? " active" : "");
+    t.textContent = `${c.name}, ${c.province}`;
+    t.onclick = () => { activeCity = c.name; renderAll(); };
+    el.appendChild(t);
+  });
+}
+
+function renderCompare() {
+  const el = document.getElementById("compare");
+  el.innerHTML = "";
+  const sorted = [...CITIES].sort((a, b) => {
+    const av = cache[a.name]?.current?.us_aqi ?? 9999;
+    const bv = cache[b.name]?.current?.us_aqi ?? 9999;
+    return av - bv;
+  });
+  sorted.forEach(c => {
+    const data = cache[c.name];
+    const aqi = data ? Math.round(data.current.us_aqi) : null;
+    const cat = aqi != null ? aqiCategory(aqi) : { name: "—", color: "var(--muted)" };
+    const row = document.createElement("div");
+    row.className = "compare-row";
+    row.onclick = () => { activeCity = c.name; renderAll(); };
+    row.innerHTML = `
+      <div class="city-name">${c.name}${c.name === activeCity ? "  ◀" : ""}</div>
+      <div style="color:${cat.color};font-weight:600;font-size:0.9rem;">${cat.name}</div>
+      <div style="color:${cat.color};font-weight:700;min-width:2.5rem;text-align:right;">${aqi ?? "—"}</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function renderPollutants(current) {
+  const el = document.getElementById("pollutants");
+  el.innerHTML = "";
+  for (const [key, label] of Object.entries(POLLUTANT_LABELS)) {
+    const v = current[key];
+    if (v == null) continue;
+    const div = document.createElement("div");
+    div.className = "pollutant";
+    div.innerHTML = `<div class="name">${label}</div><div class="val">${v.toFixed(1)}</div><div class="unit">µg/m³</div>`;
+    el.appendChild(div);
+  }
+}
+
+function renderForecast(hourly) {
+  const el = document.getElementById("forecast");
+  el.innerHTML = "";
+  const byDay = new Map();
+  hourly.time.forEach((t, i) => {
+    const day = t.slice(0, 10);
+    if (!byDay.has(day)) byDay.set(day, []);
+    const v = hourly.us_aqi[i];
+    if (v != null) byDay.get(day).push(v);
+  });
+
+  let maxAqi = 1;
+  byDay.forEach(vals => { const avg = avgOf(vals); if (avg > maxAqi) maxAqi = avg; });
+  const scaleMax = Math.max(maxAqi, 50);
+
+  byDay.forEach((vals, day) => {
+    const avg = Math.round(avgOf(vals));
+    const cat = aqiCategory(avg);
+    const row = document.createElement("div");
+    row.className = "day";
+    row.innerHTML = `
+      <div class="date">${formatDate(day + "T00:00:00")}</div>
+      <div class="bar"><div class="bar-fill" style="width:${(avg / scaleMax) * 100}%;background:${cat.color};"></div></div>
+      <div class="aqi-num" style="color:${cat.color};">${avg}</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function renderAll() {
+  renderTabs();
+  renderCompare();
+
+  const city = CITIES.find(c => c.name === activeCity);
+  const data = cache[activeCity];
+
+  document.querySelector(".subtitle").textContent =
+    `${city.name}, ${city.province}, Canada · ${Math.abs(city.lat).toFixed(2)}°${city.lat >= 0 ? "N" : "S"}, ${Math.abs(city.lon).toFixed(2)}°${city.lon >= 0 ? "E" : "W"}`;
+
+  if (!data) {
+    document.getElementById("status").className = "status loading";
+    document.getElementById("status").textContent = `Loading ${activeCity}…`;
+    document.getElementById("status").style.display = "block";
+    document.getElementById("current-section").style.display = "none";
+    return;
+  }
+
+  const aqi = Math.round(data.current.us_aqi);
+  const cat = aqiCategory(aqi);
+
+  document.getElementById("aqi-value").textContent = aqi;
+  document.getElementById("aqi-value").style.color = cat.color;
+  document.getElementById("aqi-category").textContent = cat.name;
+  const badge = document.getElementById("aqi-badge");
+  badge.textContent = cat.name;
+  badge.style.background = cat.badge;
+
+  renderPollutants(data.current);
+  renderBlocks(data.hourly);
+  renderForecast(data.hourly);
+
+  const t = new Date(data.current.time);
+  document.getElementById("updated").textContent =
+    "Updated: " + t.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+
+  document.getElementById("status").style.display = "none";
+  document.getElementById("current-section").style.display = "block";
+}
+
+async function fetchCity(city) {
+  const res = await fetch(apiUrl(city));
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return await res.json();
+}
+
+async function load() {
+  const status = document.getElementById("status");
+  try {
+    const results = await Promise.all(
+      CITIES.map(async c => ({ name: c.name, data: await fetchCity(c) }))
+    );
+    results.forEach(r => { cache[r.name] = r.data; });
+    renderAll();
+  } catch (e) {
+    status.className = "status error";
+    status.textContent = "Failed to load air quality data: " + e.message;
+    status.style.display = "block";
+    document.getElementById("current-section").style.display = "none";
+  }
+}
+
+renderTabs();
+load();
+setInterval(load, 10 * 60 * 1000);
+</script>
+</body>
+</html>
