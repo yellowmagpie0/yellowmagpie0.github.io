@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Alberta & BC Air Quality</title>
+<title>City Air Quality Dashboard</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -151,7 +151,7 @@
 <body>
   <div class="container">
     <h1>Air Quality Dashboard</h1>
-    <p class="subtitle">Alberta &amp; British Columbia, Canada</p>
+    <p class="subtitle">Selected cities in Canada &amp; Poland</p>
 
     <div class="tabs" id="tabs"></div>
 
@@ -189,11 +189,13 @@
 
 <script>
 const CITIES = [
-  { name: "Banff",      province: "AB", lat: 51.1784, lon: -115.5708 },
-  { name: "Canmore",    province: "AB", lat: 51.0892, lon: -115.3441 },
-  { name: "Jasper",     province: "AB", lat: 52.8734, lon: -118.0814 },
-  { name: "Edmonton",   province: "AB", lat: 53.5461, lon: -113.4938 },
-  { name: "Vancouver",  province: "BC", lat: 49.2827, lon: -123.1207 },
+  { name: "Banff",      province: "AB", country: "Canada", lat: 51.1784, lon: -115.5708 },
+  { name: "Canmore",    province: "AB", country: "Canada", lat: 51.0892, lon: -115.3441 },
+  { name: "Jasper",     province: "AB", country: "Canada", lat: 52.8734, lon: -118.0814 },
+  { name: "Edmonton",   province: "AB", country: "Canada", lat: 53.5461, lon: -113.4938 },
+  { name: "Vancouver",  province: "BC", country: "Canada", lat: 49.2827, lon: -123.1207 },
+  { name: "Wrocław",    province: "PL", country: "Poland", lat: 51.1079, lon: 17.0385 },
+  { name: "Toronto",    province: "ON", country: "Canada", lat: 43.6532, lon: -79.3832 },
 ];
 
 const POLLUTANT_LABELS = {
@@ -207,7 +209,7 @@ const POLLUTANT_LABELS = {
 
 // Cache of fetched data per city
 const cache = {};
-let activeCity = CITIES[0].name;
+let activeCity = "Edmonton";
 
 function apiUrl(city) {
   return `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}` +
@@ -371,7 +373,7 @@ function renderAll() {
   const data = cache[activeCity];
 
   document.querySelector(".subtitle").textContent =
-    `${city.name}, ${city.province}, Canada · ${Math.abs(city.lat).toFixed(2)}°${city.lat >= 0 ? "N" : "S"}, ${Math.abs(city.lon).toFixed(2)}°${city.lon >= 0 ? "E" : "W"}`;
+    `${city.name}, ${city.province}, ${city.country} · ${Math.abs(city.lat).toFixed(2)}°${city.lat >= 0 ? "N" : "S"}, ${Math.abs(city.lon).toFixed(2)}°${city.lon >= 0 ? "E" : "W"}`;
 
   if (!data) {
     document.getElementById("status").className = "status loading";
@@ -425,7 +427,7 @@ async function load() {
   }
 }
 
-renderTabs();
+renderAll();
 load();
 setInterval(load, 10 * 60 * 1000);
 </script>
