@@ -416,7 +416,7 @@ async function fetchAlbertaObservation(city) {
   const aqhiUrl = odataUrl("CommunityMeasurements", {
     "$filter": `CommunityName eq '${config.community}' and ParameterKey eq 80`,
     "$orderby": "ReadingDate desc",
-    "$top": "1",
+    "$top": "12",
   });
   const measurementsUrl = odataUrl("StationMeasurements", {
     "$filter": `StationKey eq ${config.stationKey}`,
@@ -424,7 +424,12 @@ async function fetchAlbertaObservation(city) {
     "$top": "40",
   });
   const [aqhiPayload, measurementsPayload] = await Promise.all([fetchJson(aqhiUrl), fetchJson(measurementsUrl)]);
-  const aqhiRow = aqhiPayload.value?.[0];
+  // Alberta sometimes publishes the new hour as a temporary "No Data" row
+  // before its AQHI value is ready. Use the newest recent row with a real
+  // value instead of treating that placeholder as a source outage.
+  const aqhiRow = (aqhiPayload.value || []).find(row =>
+    finiteNumber(row.Value) !== null && row.ReadingDate
+  );
   const value = finiteNumber(aqhiRow?.Value);
   if (value === null || !aqhiRow?.ReadingDate) throw new Error("No current Alberta AQHI observation");
   assertFresh(aqhiRow.ReadingDate, config.community);
