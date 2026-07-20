@@ -1,0 +1,4 @@
+[submodule "ocpp3"]
+	path = ocpp3
+	url = https://github.com/yellowmagpie0/ocpp3.git
+	branch = main
